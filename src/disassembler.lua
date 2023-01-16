@@ -400,7 +400,7 @@ local function getConstantString(constant)
 	elseif constantType == "string" then
 		-- Safely escape control characters
 		constantString = string.format(
-			"%q",
+			"\"%q\"",
 			(string.gsub(
 				constant,
 				"[%c\"\\]",
@@ -562,22 +562,22 @@ local function disassemble(bytecodeString, options)
 				local target = get_arga(insn)
 				local aux = proto.code[pc]
 				insnText = string.format(
-					"GETGLOBAL R%i K%i ; K(%i) = \"%s\"\n",
+					"GETGLOBAL R%i K%i ; K(%i) = %s\n",
 					target,
 					aux,
 					aux,
-					proto.k[aux + 1]
+					getConstantString(proto.k[aux + 1])
 				)
 			elseif opcode == opcodes.SETGLOBAL then
 				pc += 1
 				local source = get_arga(insn)
 				local aux = proto.code[pc]
 				insnText = string.format(
-					"SETGLOBAL R%i K%i ; K(%i) = \"%s\"\n",
+					"SETGLOBAL R%i K%i ; K(%i) = %s\n",
 					source,
 					aux,
 					aux,
-					proto.k[aux + 1]
+					getConstantString(proto.k[aux + 1])
 				)
 			elseif opcode == opcodes.GETUPVAL then
 				insnText = string.format(
@@ -624,12 +624,12 @@ local function disassemble(bytecodeString, options)
 				local tableRegister = get_argb(insn)
 				local aux = proto.code[pc]
 				insnText = string.format(
-					"GETTABLEKS R%i R%i K%i ; K(%i) = \"%s\"\n",
+					"GETTABLEKS R%i R%i K%i ; K(%i) = %s\n",
 					targetRegister,
 					tableRegister,
 					aux,
 					aux,
-					proto.k[aux + 1]
+					getConstantString(proto.k[aux + 1])
 				)
 			elseif opcode == opcodes.SETTABLEKS then
 				pc += 1
@@ -637,12 +637,12 @@ local function disassemble(bytecodeString, options)
 				local tableRegister = get_argb(insn)
 				local aux = proto.code[pc]
 				insnText = string.format(
-					"SETTABLEKS R%i R%i K%i ; K(%i) = \"%s\"\n",
+					"SETTABLEKS R%i R%i K%i ; K(%i) = %s\n",
 					sourceRegister,
 					tableRegister,
 					aux,
 					aux,
-					proto.k[aux + 1]
+					getConstantString(proto.k[aux + 1])
 				)
 			elseif opcode == opcodes.GETTABLEN then
 				local argc = get_argc(insn)
@@ -674,12 +674,12 @@ local function disassemble(bytecodeString, options)
 				local sourceRegister = get_argb(insn)
 				local aux = proto.code[pc]
 				insnText = string.format(
-					"NAMECALL R%i R%i K%i ; K(%i) = \"%s\"\n",
+					"NAMECALL R%i R%i K%i ; K(%i) = %s\n",
 					targetRegister,
 					sourceRegister,
 					aux,
 					aux,
-					proto.k[aux + 1]
+					getConstantString(proto.k[aux + 1])
 				)
 			elseif opcode == opcodes.CALL then
 				local nargs = get_argb(insn)
@@ -1242,13 +1242,13 @@ local function disassemble(bytecodeString, options)
 				local kIdx = bit32.band(aux, 0x00FFFFFF)
 				local notFlag = bit32.btest(aux, 0x80000000)
 				insnText = string.format(
-					"JUMP%sEQKS R%i K%i %+i ; K(%i) = \"%s\", to %i\n",
+					"JUMP%sEQKS R%i K%i %+i ; K(%i) = %s, to %i\n",
 					notFlag and "IFNOT" or "IF",
 					sourceRegister1,
 					kIdx,
 					jumpOffset,
 					kIdx,
-					proto.k[kIdx + 1],
+					getConstantString(proto.k[kIdx + 1]),
 					pc + jumpOffset
 				)
 			else -- Unknown opcode
