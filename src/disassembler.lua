@@ -425,7 +425,16 @@ local function getConstantString(constant)
 end
 
 local function disassemble(bytecodeString, options)
-	assert(type(bytecodeString) == "string", "Argument #1 to `disassemble` must be a string")
+	-- If a Script instance was inputted, get it's bytecode first
+	if type(bytecodeString) == "userdata" then
+		if bytecodeString:IsA("Script") then
+			bytecodeString = getscriptbytecode(bytecodeString)
+		else
+			error("Argument #1 to `disassemble` must be a Script instance")
+		end
+	elseif type(bytecodeString) ~= "string" then
+		error("Argument #1 to `disassemble` must be a string")
+	end
 
 	if not options then
 		-- Set default options
