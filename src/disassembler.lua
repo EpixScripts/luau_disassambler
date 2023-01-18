@@ -741,10 +741,10 @@ local function disassemble(bytecodeString, options)
 					pc + offset
 				)
 			elseif opcode == opcodes.JUMPIFEQ then
-				pc += 1
 				local register1 = get_arga(insn)
 				local offset = get_argd(insn)
 				local jumpTo = pc + offset
+				pc += 1
 				local aux = proto.code[pc]
 				insnText = string.format(
 					"JUMPIFEQ R%i R%i %+i ; to %i\n",
@@ -754,10 +754,10 @@ local function disassemble(bytecodeString, options)
 					jumpTo
 				)
 			elseif opcode == opcodes.JUMPIFLE then
-				pc += 1
 				local register1 = get_arga(insn)
 				local offset = get_argd(insn)
 				local jumpTo = pc + offset
+				pc += 1
 				local aux = proto.code[pc]
 				insnText = string.format(
 					"JUMPIFLE R%i R%i %+i ; to %i\n",
@@ -767,10 +767,10 @@ local function disassemble(bytecodeString, options)
 					jumpTo
 				)
 			elseif opcode == opcodes.JUMPIFLT then
-				pc += 1
 				local register1 = get_arga(insn)
 				local offset = get_argd(insn)
 				local jumpTo = pc + offset
+				pc += 1
 				local aux = proto.code[pc]
 				insnText = string.format(
 					"JUMPIFLT R%i R%i %+i ; to %i\n",
@@ -780,10 +780,10 @@ local function disassemble(bytecodeString, options)
 					jumpTo
 				)
 			elseif opcode == opcodes.JUMPIFNOTEQ then
-				pc += 1
 				local register1 = get_arga(insn)
 				local offset = get_argd(insn)
 				local jumpTo = pc + offset
+				pc += 1
 				local aux = proto.code[pc]
 				insnText = string.format(
 					"JUMPIFNOTEQ R%i R%i %+i ; to %i\n",
@@ -793,10 +793,10 @@ local function disassemble(bytecodeString, options)
 					jumpTo
 				)
 			elseif opcode == opcodes.JUMPIFNOTLE then
-				pc += 1
 				local register1 = get_arga(insn)
 				local offset = get_argd(insn)
 				local jumpTo = pc + offset
+				pc += 1
 				local aux = proto.code[pc]
 				insnText = string.format(
 					"JUMPIFNOTLE R%i R%i %+i ; to %i\n",
@@ -806,10 +806,10 @@ local function disassemble(bytecodeString, options)
 					jumpTo
 				)
 			elseif opcode == opcodes.JUMPIFNOTLT then
-				pc += 1
 				local register1 = get_arga(insn)
 				local offset = get_argd(insn)
 				local jumpTo = pc + offset
+				pc += 1
 				local aux = proto.code[pc]
 				insnText = string.format(
 					"JUMPIFNOTLT R%i R%i %+i ; to %i\n",
@@ -1038,16 +1038,17 @@ local function disassemble(bytecodeString, options)
 					pc + jumpOffset
 				)
 			elseif opcode == opcodes.FORGLOOP then
+				local jumpOffset = get_argd(insn)
+				local jumpTo = pc + jumpOffset
 				pc += 1
 				local aux = proto.code[pc]
-				local jumpOffset = get_argd(insn)
 				insnText = string.format(
 					"FORGLOOP R%i %+i %i%s ; to %i\n",
 					get_arga(insn),
 					jumpOffset,
 					bit32.band(aux, 0xff),
 					bit32.btest(aux, 0x80000000) and " [inext]" or "", -- High bit
-					pc + jumpOffset
+					jumpTo
 				)
 			elseif opcode == opcodes.FORGPREP_INEXT then
 				local jumpOffset = get_argd(insn)
@@ -1135,9 +1136,9 @@ local function disassemble(bytecodeString, options)
 					get_argb(insn)
 				)
 			elseif opcode == opcodes.JUMPIFEQK then
-				pc += 1
 				local offset = get_argd(insn)
 				local jumpTo = pc + offset
+				pc += 1
 				local aux = proto.code[pc]
 				insnText = string.format(
 					"JUMPIFEQK R%i K%i %+i ; K(%i) = %s, to %i\n",
@@ -1149,9 +1150,9 @@ local function disassemble(bytecodeString, options)
 					jumpTo
 				)
 			elseif opcode == opcodes.JUMPIFNOTEQK then
-				pc += 1
 				local offset = get_argd(insn)
 				local jumpTo = pc + offset
+				pc += 1
 				local aux = proto.code[pc]
 				insnText = string.format(
 					"JUMPIFNOTEQK R%i K%i %+i ; K(%i) = %s, to %i\n",
@@ -1173,9 +1174,10 @@ local function disassemble(bytecodeString, options)
 					pc + offset
 				)
 			elseif opcode == opcodes.FASTCALL2 then
-				pc += 1
 				local fid = get_arga(insn)
 				local offset = get_argc(insn)
+				local jumpTo = pc + offset
+				pc += 1
 				local aux = proto.code[pc]
 				insnText = string.format(
 					"FASTCALL2 %s R%i R%i %+i ; to %i\n",
@@ -1183,12 +1185,13 @@ local function disassemble(bytecodeString, options)
 					get_argb(insn),
 					aux,
 					offset,
-					pc + offset
+					jumpTo
 				)
 			elseif opcode == opcodes.FASTCALL2K then
-				pc += 1
 				local fid = get_arga(insn)
 				local offset = get_argc(insn)
+				local jumpTo = pc + offset
+				pc += 1
 				local aux = proto.code[pc]
 				insnText = string.format(
 					"FASTCALL2K %s R%i K%i %+i ; to %i\n",
@@ -1196,12 +1199,13 @@ local function disassemble(bytecodeString, options)
 					get_argb(insn),
 					aux,
 					offset,
-					pc + offset
+					jumpTo
 				)
 			elseif opcode == opcodes.JUMPXEQKNIL then
-				pc += 1
 				local sourceRegister1 = get_arga(insn)
 				local jumpOffset = get_argd(insn)
+				local jumpTo = pc + jumpOffset
+				pc += 1
 				local aux = proto.code[pc]
 				local notFlag = bit32.btest(aux, 0x80000000)
 				insnText = string.format(
@@ -1209,12 +1213,13 @@ local function disassemble(bytecodeString, options)
 					notFlag and "IFNOT" or "IF",
 					sourceRegister1,
 					jumpOffset,
-					pc + jumpOffset
+					jumpTo
 				)
 			elseif opcode == opcodes.JUMPXEQKB then
-				pc += 1
 				local sourceRegister1 = get_arga(insn)
 				local jumpOffset = get_argd(insn)
+				local jumpTo = pc + jumpOffset
+				pc += 1
 				local aux = proto.code[pc]
 				local boolValue = bit32.btest(aux, 1)
 				local notFlag = bit32.btest(aux, 0x80000000)
@@ -1224,12 +1229,13 @@ local function disassemble(bytecodeString, options)
 					sourceRegister1,
 					boolValue and "true" or "false",
 					jumpOffset,
-					pc + jumpOffset
+					jumpTo
 				)
 			elseif opcode == opcodes.JUMPXEQKN then
-				pc += 1
 				local sourceRegister1 = get_arga(insn)
 				local jumpOffset = get_argd(insn)
+				local jumpTo = pc + jumpOffset
+				pc += 1
 				local aux = proto.code[pc]
 				local kIdx = bit32.band(aux, 0x00FFFFFF)
 				local notFlag = bit32.btest(aux, 0x80000000)
@@ -1241,12 +1247,13 @@ local function disassemble(bytecodeString, options)
 					jumpOffset,
 					kIdx,
 					proto.k[kIdx + 1],
-					pc + jumpOffset
+					jumpTo
 				)
 			elseif opcode == opcodes.JUMPXEQKS then
-				pc += 1
 				local sourceRegister1 = get_arga(insn)
 				local jumpOffset = get_argd(insn)
+				local jumpTo = pc + jumpOffset
+				pc += 1
 				local aux = proto.code[pc]
 				local kIdx = bit32.band(aux, 0x00FFFFFF)
 				local notFlag = bit32.btest(aux, 0x80000000)
@@ -1258,7 +1265,7 @@ local function disassemble(bytecodeString, options)
 					jumpOffset,
 					kIdx,
 					getConstantString(proto.k[kIdx + 1]),
-					pc + jumpOffset
+					jumpTo
 				)
 			else -- Unknown opcode
 				-- Show the hex of this instruction so the user knows what the disassembler failed to recognize
