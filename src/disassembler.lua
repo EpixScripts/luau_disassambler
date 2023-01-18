@@ -399,8 +399,8 @@ local function getConstantString(constant)
 		constantString = string.format("%4.3f", constant)
 	elseif constantType == "string" then
 		-- Safely escape control characters
-		constantString = string.format(
-			"\"%q\"",
+		constantString = "\"" .. string.format(
+			"%q",
 			(string.gsub(
 				constant,
 				"[%c\"\\]",
@@ -416,7 +416,7 @@ local function getConstantString(constant)
 					["\""] = "\\\"",
 				}
 			))
-		)
+		) .. "\""
 	else
 		constantString = string.format("unknown constant of type %s", constantType)
 	end
