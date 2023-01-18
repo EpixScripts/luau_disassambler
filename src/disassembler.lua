@@ -400,7 +400,7 @@ local function getConstantString(constant)
 	elseif constantType == "string" then
 		-- Safely escape control characters
 		constantString = "\"" .. string.format(
-			"%q",
+			"%s",
 			(string.gsub(
 				constant,
 				"[%c\"\\]",
