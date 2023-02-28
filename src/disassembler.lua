@@ -1,3 +1,4 @@
+--!optimize 2
 -- Luau bytecode disassembler, written in Luau
 -- Created by Epix#3333 (https://github.com/EpixScripts)
 local IS_ROBLOX_CLIENT = true
@@ -426,8 +427,8 @@ end
 
 local function disassemble(bytecodeString, options)
 	-- If a Script instance was inputted, get it's bytecode first
-	if type(bytecodeString) == "userdata" then
-		if bytecodeString:IsA("Script") then
+	if typeof(bytecodeString) == "Instance" then
+		if bytecodeString:IsA("LuaSourceContainer") then
 			bytecodeString = getscriptbytecode(bytecodeString)
 		else
 			error("Argument #1 to `disassemble` must be a Script instance")
@@ -516,9 +517,9 @@ local function disassemble(bytecodeString, options)
 
 			-- TODO: try using an array with function handlers for opcodes instead of using a large if/elseif block
 			local insnText
-			if opcode == opcodes.NOP then -- This should not generate, but it's here for completeness sake
+			if opcode == opcodes.NOP then
 				insnText = string.format("NOP (%#010x)\n", insn)
-			elseif opcode == opcodes.BREAK then -- This should not generate in production game code, but it's here for completeness sake
+			elseif opcode == opcodes.BREAK then
 				insnText = "BREAK\n"
 			elseif opcode == opcodes.LOADNIL then
 				insnText = string.format("LOADNIL R%i\n", get_arga(insn))
