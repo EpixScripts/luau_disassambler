@@ -1,0 +1,6 @@
+{
+	"name": "luau-disassambler",
+	"tree": {
+		"$path": "src"
+	}
+}

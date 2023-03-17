@@ -3,7 +3,7 @@
 -- Created by Epix#3333 (https://github.com/EpixScripts)
 local IS_ROBLOX_CLIENT = true
 
-local opcodes = {
+local vanillaOpcodes = {
 	NOP = 0,
 	BREAK = 1,
 	LOADNIL = 2,
@@ -151,16 +151,6 @@ local fastcallNames = {
 	[60] = "GETMETATABLE",
 	[61] = "SETMETATABLE",
 }
-
-if IS_ROBLOX_CLIENT then
-	-- there be dragons if modifying a table while iterating over it :skull:
-	local robloxOpcodes = {}
-	for name, byte in pairs(opcodes) do
-		-- uint8_t(op * 227)
-		robloxOpcodes[name] = bit32.band(byte * 227, 0xff)
-	end
-	opcodes = robloxOpcodes
-end
 
 local function dissectImport(id, k)
 	-- Import IDs have the top two bits as the length of the chain, and then 3 10-bit fields of constant string indices
@@ -397,10 +387,10 @@ local function getConstantString(constant)
 	elseif constantType == "boolean" then
 		constantString = constant and "true" or "false"
 	elseif constantType == "number" then
-		constantString = string.format("%4.3f", constant)
+		constantString = string.format("%.17g", constant)
 	elseif constantType == "string" then
 		-- Safely escape control characters
-		constantString = "\"" .. string.format(
+		constantString = "'" .. string.format(
 			"%s",
 			(string.gsub(
 				constant,
@@ -417,7 +407,7 @@ local function getConstantString(constant)
 					["\""] = "\\\"",
 				}
 			))
-		) .. "\""
+		) .. "'"
 	else
 		constantString = string.format("unknown constant of type %s", constantType)
 	end
@@ -426,7 +416,7 @@ local function getConstantString(constant)
 end
 
 local function disassemble(bytecodeString, options)
-	-- If a Script instance was inputted, get it's bytecode first
+	-- If a Script instance was inputted, get its bytecode first
 	if typeof(bytecodeString) == "Instance" then
 		if bytecodeString:IsA("LuaSourceContainer") then
 			bytecodeString = getscriptbytecode(bytecodeString)
@@ -437,16 +427,21 @@ local function disassemble(bytecodeString, options)
 		error("Argument #1 to `disassemble` must be a string")
 	end
 
-	if not options then
-		-- Set default options
-		options = {
-			showBytecodeOffsets = false,
-			showRawBytes = false,
-		}
+	options = options or {}
+	local showBytecodeOffsets = options.showBytecodeOffsets or false
+	local showRawBytes = options.showRawBytes or false
+	local useRobloxOpcodes = options.useRobloxOpcodes or true
+
+	local opcodes = vanillaOpcodes
+	if useRobloxOpcodes then
+		-- there be dragons if modifying a table while iterating over it :skull:
+		local robloxOpcodes = {}
+		for name, byte in pairs(opcodes) do
+			-- uint8_t(op * 227)
+			robloxOpcodes[name] = bit32.band(byte * 227, 0xff)
+		end
+		opcodes = robloxOpcodes
 	end
-	-- Localized for performance
-	local showBytecodeOffsets = options.showBytecodeOffsets
-	local showRawBytes = options.showRawBytes
 
 	local CAPTURE_TYPE_NAMES = {
 		[0] = "VAL",
@@ -463,9 +458,9 @@ local function disassemble(bytecodeString, options)
 		protoOutputs[protoId] = output
 
 		-- Write proto header
-		table.insert(output, string.format("; global id: %i\n", protoId - 1))
+		table.insert(output, string.format("; bytecode proto index: %i\n", protoId - 1))
 		if showBytecodeOffsets then
-			table.insert(output, string.format("; bytecode offset: %X\n", proto.bytecodeOffset))
+			table.insert(output, string.format("; bytecode offset: 0x%X\n", proto.bytecodeOffset))
 		end
 		if proto.linedefined then
 			table.insert(output, string.format("; line defined: %i\n", proto.linedefined))
@@ -555,9 +550,8 @@ local function disassemble(bytecodeString, options)
 				local constantString = getConstantString(constant)
 
 				insnText = string.format(
-					"LOADK R%i K%i ; K(%i) = %s\n",
+					"LOADK R%i K%i [%s]\n",
 					get_arga(insn),
-					constantIndex,
 					constantIndex,
 					constantString
 				)
@@ -572,9 +566,8 @@ local function disassemble(bytecodeString, options)
 				local target = get_arga(insn)
 				local aux = proto.code[pc]
 				insnText = string.format(
-					"GETGLOBAL R%i K%i ; K(%i) = %s\n",
+					"GETGLOBAL R%i K%i [%s]\n",
 					target,
-					aux,
 					aux,
 					getConstantString(proto.k[aux + 1])
 				)
@@ -583,9 +576,8 @@ local function disassemble(bytecodeString, options)
 				local source = get_arga(insn)
 				local aux = proto.code[pc]
 				insnText = string.format(
-					"SETGLOBAL R%i K%i ; K(%i) = %s\n",
+					"SETGLOBAL R%i K%i [%s]\n",
 					source,
-					aux,
 					aux,
 					getConstantString(proto.k[aux + 1])
 				)
@@ -609,7 +601,7 @@ local function disassemble(bytecodeString, options)
 				local constantIndex = get_argd(insn)
 				local import = proto.k[constantIndex + 1]
 				insnText = string.format(
-					"GETIMPORT R%i %i ; %s\n",
+					"GETIMPORT R%i %i [%s]\n",
 					target,
 					constantIndex,
 					import.displayString
@@ -634,10 +626,9 @@ local function disassemble(bytecodeString, options)
 				local tableRegister = get_argb(insn)
 				local aux = proto.code[pc]
 				insnText = string.format(
-					"GETTABLEKS R%i R%i K%i ; K(%i) = %s\n",
+					"GETTABLEKS R%i R%i K%i [%s]\n",
 					targetRegister,
 					tableRegister,
-					aux,
 					aux,
 					getConstantString(proto.k[aux + 1])
 				)
@@ -647,10 +638,9 @@ local function disassemble(bytecodeString, options)
 				local tableRegister = get_argb(insn)
 				local aux = proto.code[pc]
 				insnText = string.format(
-					"SETTABLEKS R%i R%i K%i ; K(%i) = %s\n",
+					"SETTABLEKS R%i R%i K%i [%s]\n",
 					sourceRegister,
 					tableRegister,
-					aux,
 					aux,
 					getConstantString(proto.k[aux + 1])
 				)
@@ -673,7 +663,7 @@ local function disassemble(bytecodeString, options)
 			elseif opcode == opcodes.NEWCLOSURE then
 				local childProtoId = get_argd(insn)
 				insnText = string.format(
-					"NEWCLOSURE R%i P%i ; global id = %i\n",
+					"NEWCLOSURE R%i P%i ; bytecode proto index = %i\n",
 					get_arga(insn),
 					childProtoId,
 					proto.p[childProtoId + 1]
@@ -684,10 +674,9 @@ local function disassemble(bytecodeString, options)
 				local sourceRegister = get_argb(insn)
 				local aux = proto.code[pc]
 				insnText = string.format(
-					"NAMECALL R%i R%i K%i ; K(%i) = %s\n",
+					"NAMECALL R%i R%i K%i [%s]\n",
 					targetRegister,
 					sourceRegister,
-					aux,
 					aux,
 					getConstantString(proto.k[aux + 1])
 				)
@@ -865,67 +854,61 @@ local function disassemble(bytecodeString, options)
 				local constantIndex = get_argc(insn)
 				local constantValue = proto.k[constantIndex + 1]
 				insnText = string.format(
-					"ADDK R%i R%i K%i ; K(%i) = %4.3f\n",
+					"ADDK R%i R%i K%i [%s]\n",
 					get_arga(insn),
 					get_argb(insn),
 					constantIndex,
-					constantIndex,
-					constantValue
+					getConstantString(constantValue)
 				)
 			elseif opcode == opcodes.SUBK then
 				local constantIndex = get_argc(insn)
 				local constantValue = proto.k[constantIndex + 1]
 				insnText = string.format(
-					"SUBK R%i R%i K%i ; K(%i) = %4.3f\n",
+					"SUBK R%i R%i K%i [%s]\n",
 					get_arga(insn),
 					get_argb(insn),
 					constantIndex,
-					constantIndex,
-					constantValue
+					getConstantString(constantValue)
 				)
 			elseif opcode == opcodes.MULK then
 				local constantIndex = get_argc(insn)
 				local constantValue = proto.k[constantIndex + 1]
 				insnText = string.format(
-					"MULK R%i R%i K%i ; K(%i) = %4.3f\n",
+					"MULK R%i R%i K%i [%s]\n",
 					get_arga(insn),
 					get_argb(insn),
 					constantIndex,
-					constantIndex,
-					constantValue
+					getConstantString(constantValue)
 				)
 			elseif opcode == opcodes.DIVK then
 				local constantIndex = get_argc(insn)
 				local constantValue = proto.k[constantIndex + 1]
 				insnText = string.format(
-					"DIVK R%i R%i K%i ; K(%i) = %4.3f\n",
+					"DIVK R%i R%i K%i [%s]\n",
 					get_arga(insn),
 					get_argb(insn),
 					constantIndex,
-					constantIndex,
-					constantValue
+					getConstantString(constantValue)
 				)
 			elseif opcode == opcodes.MODK then
 				local constantIndex = get_argc(insn)
 				local constantValue = proto.k[constantIndex + 1]
 				insnText = string.format(
-					"MODK R%i R%i K%i ; K(%i) = %4.3f\n",
+					"MODK R%i R%i K%i [%s]\n",
 					get_arga(insn),
 					get_argb(insn),
 					constantIndex,
-					constantIndex,
-					constantValue
+					getConstantString(constantValue)
 				)
 			elseif opcode == opcodes.POWK then
 				local constantIndex = get_argc(insn)
 				local constantValue = proto.k[constantIndex + 1]
 				insnText = string.format(
-					"POWK R%i R%i K%i ; K(%i) = %4.3f\n",
+					"POWK R%i R%i K%i [%s]\n",
 					get_arga(insn),
 					get_argb(insn),
 					constantIndex,
-					constantIndex,
-					constantValue
+					getConstantString(constantValue)
 				)
 			elseif opcode == opcodes.AND then
 				insnText = string.format(
@@ -944,20 +927,18 @@ local function disassemble(bytecodeString, options)
 			elseif opcode == opcodes.ANDK then
 				local constantIndex = get_argc(insn)
 				insnText = string.format(
-					"ANDK R%i R%i K%i ; K(%i) = %s\n",
+					"ANDK R%i R%i K%i [%s]\n",
 					get_arga(insn),
 					get_argb(insn),
-					constantIndex,
 					constantIndex,
 					getConstantString(proto.k[constantIndex + 1])
 				)
 			elseif opcode == opcodes.ORK then
 				local constantIndex = get_argc(insn)
 				insnText = string.format(
-					"ORK R%i R%i K%i ; K(%i) = %s\n",
+					"ORK R%i R%i K%i [%s]\n",
 					get_arga(insn),
 					get_argb(insn),
-					constantIndex,
 					constantIndex,
 					getConstantString(proto.k[constantIndex + 1])
 				)
@@ -1093,7 +1074,7 @@ local function disassemble(bytecodeString, options)
 			elseif opcode == opcodes.DUPCLOSURE then
 				local childProtoId = get_argd(insn)
 				insnText = string.format(
-					"DUPCLOSURE R%i K%i ; global id = %i\n",
+					"DUPCLOSURE R%i K%i ; bytecode proto index = %i\n",
 					get_arga(insn),
 					childProtoId,
 					proto.k[childProtoId + 1]
@@ -1104,9 +1085,8 @@ local function disassemble(bytecodeString, options)
 				local constant = proto.k[constantIndex + 1]
 				local constantString = getConstantString(constant)
 				insnText = string.format(
-					"LOADKX R%i K%i ; K(%i) = %s\n",
+					"LOADKX R%i K%i [%s]\n",
 					get_arga(insn),
-					constantIndex,
 					constantIndex,
 					constantString
 				)
@@ -1126,7 +1106,7 @@ local function disassemble(bytecodeString, options)
 					jumpOffset,
 					pc + jumpOffset
 				)
-			elseif opcode == opcodes.COVERAGE then -- This doesn't seem to generate in production game code, but it's here for completeness sake
+			elseif opcode == opcodes.COVERAGE then
 				insnText = "COVERAGE\n"
 			elseif opcode == opcodes.CAPTURE then
 				local captureTypeId = get_arga(insn)
@@ -1135,34 +1115,6 @@ local function disassemble(bytecodeString, options)
 					captureTypeString ~= "UPVAL" and "CAPTURE %s R%i\n" or "CAPTURE %s U%i\n",
 					captureTypeString,
 					get_argb(insn)
-				)
-			elseif opcode == opcodes.JUMPIFEQK then
-				local offset = get_argd(insn)
-				local jumpTo = pc + offset
-				pc += 1
-				local aux = proto.code[pc]
-				insnText = string.format(
-					"JUMPIFEQK R%i K%i %+i ; K(%i) = %s, to %i\n",
-					get_arga(insn),
-					aux,
-					offset,
-					aux,
-					getConstantString(proto.k[aux + 1]),
-					jumpTo
-				)
-			elseif opcode == opcodes.JUMPIFNOTEQK then
-				local offset = get_argd(insn)
-				local jumpTo = pc + offset
-				pc += 1
-				local aux = proto.code[pc]
-				insnText = string.format(
-					"JUMPIFNOTEQK R%i K%i %+i ; K(%i) = %s, to %i\n",
-					get_arga(insn),
-					aux,
-					offset,
-					aux,
-					getConstantString(proto.k[aux + 1]),
-					jumpTo
 				)
 			elseif opcode == opcodes.FASTCALL1 then
 				local fid = get_arga(insn)
@@ -1195,11 +1147,12 @@ local function disassemble(bytecodeString, options)
 				pc += 1
 				local aux = proto.code[pc]
 				insnText = string.format(
-					"FASTCALL2K %s R%i K%i %+i ; to %i\n",
+					"FASTCALL2K %s R%i K%i %+i [%s] ; to %i\n",
 					fastcallNames[fid],
 					get_argb(insn),
 					aux,
 					offset,
+					getConstantString(proto.k[aux + 1]),
 					jumpTo
 				)
 			elseif opcode == opcodes.JUMPXEQKNIL then
@@ -1241,13 +1194,12 @@ local function disassemble(bytecodeString, options)
 				local kIdx = bit32.band(aux, 0x00FFFFFF)
 				local notFlag = bit32.btest(aux, 0x80000000)
 				insnText = string.format(
-					"JUMP%sEQKN R%i K%i %+i ; K(%i) = %4.3f, to %i\n",
+					"JUMP%sEQKN R%i K%i %+i [%s] ; to %i\n",
 					notFlag and "IFNOT" or "IF",
 					sourceRegister1,
 					kIdx,
 					jumpOffset,
-					kIdx,
-					proto.k[kIdx + 1],
+					getConstantString(proto.k[kIdx + 1]),
 					jumpTo
 				)
 			elseif opcode == opcodes.JUMPXEQKS then
@@ -1259,12 +1211,11 @@ local function disassemble(bytecodeString, options)
 				local kIdx = bit32.band(aux, 0x00FFFFFF)
 				local notFlag = bit32.btest(aux, 0x80000000)
 				insnText = string.format(
-					"JUMP%sEQKS R%i K%i %+i ; K(%i) = %s, to %i\n",
+					"JUMP%sEQKS R%i K%i %+i [%s] ; to %i\n",
 					notFlag and "IFNOT" or "IF",
 					sourceRegister1,
 					kIdx,
 					jumpOffset,
-					kIdx,
 					getConstantString(proto.k[kIdx + 1]),
 					jumpTo
 				)

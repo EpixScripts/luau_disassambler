@@ -2,9 +2,10 @@
 
 ## Usage
 ```lua
-local disassemble = require("disassembler")
+local disassemble = require("luau-disassambler")
 local disassembly = disassemble(bytecode, {
 	showBytecodeOffsets = false,
 	showRawBytes = false,
+	useRobloxOpcodes = true,
 })
 ```
