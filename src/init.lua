@@ -1,7 +1,6 @@
 --!optimize 2
 -- Luau bytecode disassembler, written in Luau
 -- Created by Epix#3333 (https://github.com/EpixScripts)
-local IS_ROBLOX_CLIENT = true
 
 local vanillaOpcodes = {
 	NOP = 0,
@@ -1257,7 +1256,7 @@ local function disassemble(bytecodeString, options)
 	return table.concat(finalOutput, "")
 end
 
-if IS_ROBLOX_CLIENT then
+if getgenv then
 	getgenv().disassemble = disassemble
 end
 
