@@ -1,6 +1,6 @@
 --!optimize 2
 -- Luau bytecode disassembler, written in Luau
--- Created by Epix#3333 (https://github.com/EpixScripts)
+-- Created by @epix1 (https://github.com/EpixScripts)
 
 local vanillaOpcodes = {
 	NOP = 0,
@@ -63,9 +63,9 @@ local vanillaOpcodes = {
 	FORNLOOP = 57,
 	FORGLOOP = 58,
 	FORGPREP_INEXT = 59,
-	FORGLOOP_INEXT = 60,
+	DEP_FORGLOOP_INEXT = 60,
 	FORGPREP_NEXT = 61,
-	FORGLOOP_NEXT = 62,
+	NATIVECALL = 62,
 	GETVARARGS = 63,
 	DUPCLOSURE = 64,
 	PREPVARARGS = 65,
@@ -74,8 +74,8 @@ local vanillaOpcodes = {
 	FASTCALL = 68,
 	COVERAGE = 69,
 	CAPTURE = 70,
-	JUMPIFEQK = 71,
-	JUMPIFNOTEQK = 72,
+	DEP_JUMPIFEQK = 71,
+	DEP_JUMPIFNOTEQK = 72,
 	FASTCALL1 = 73,
 	FASTCALL2 = 74,
 	FASTCALL2K = 75,
@@ -84,6 +84,8 @@ local vanillaOpcodes = {
 	JUMPXEQKB = 78,
 	JUMPXEQKN = 79,
 	JUMPXEQKS = 80,
+	IDIV = 81,
+	IDIVK = 82,
 }
 
 local fastcallNames = {
@@ -149,6 +151,8 @@ local fastcallNames = {
 	[59] = "BIT32_EXTRACTK",
 	[60] = "GETMETATABLE",
 	[61] = "SETMETATABLE",
+	[62] = "TONUMBER",
+	[63] = "TOSTRING",
 }
 
 local function dissectImport(id, k)
@@ -420,7 +424,7 @@ local function disassemble(bytecodeString, options)
 		if bytecodeString:IsA("LuaSourceContainer") then
 			bytecodeString = getscriptbytecode(bytecodeString)
 		else
-			error("Argument #1 to `disassemble` must be a Script instance")
+			error("Argument #1 to `disassemble` must be a LuaSourceContainer instance")
 		end
 	elseif type(bytecodeString) ~= "string" then
 		error("Argument #1 to `disassemble` must be a string")
@@ -1039,14 +1043,6 @@ local function disassemble(bytecodeString, options)
 					jumpOffset,
 					pc + jumpOffset
 				)
-			elseif opcode == opcodes.FORGLOOP_INEXT then
-				local jumpOffset = get_argd(insn)
-				insnText = string.format(
-					"FORGLOOP_INEXT R%i %+i ; to %i\n",
-					get_arga(insn),
-					jumpOffset,
-					pc + jumpOffset
-				)
 			elseif opcode == opcodes.FORGPREP_NEXT then
 				local jumpOffset = get_argd(insn)
 				insnText = string.format(
@@ -1055,14 +1051,8 @@ local function disassemble(bytecodeString, options)
 					jumpOffset,
 					pc + jumpOffset
 				)
-			elseif opcode == opcodes.FORGLOOP_NEXT then
-				local jumpOffset = get_argd(insn)
-				insnText = string.format(
-					"FORGLOOP_NEXT R%i %+i ; to %i\n",
-					get_arga(insn),
-					jumpOffset,
-					pc + jumpOffset
-				)
+			elseif opcode == opcodes.NATIVECALL then
+				insnText = "NATIVECALL\n"
 			elseif opcode == opcodes.GETVARARGS then
 				local argb = get_argb(insn)
 				insnText = string.format(
@@ -1101,7 +1091,7 @@ local function disassemble(bytecodeString, options)
 				local fid = get_arga(insn)
 				insnText = string.format(
 					"FASTCALL %s %+i ; to %i\n",
-					fastcallNames[fid],
+					fastcallNames[fid] or tostring(fid),
 					jumpOffset,
 					pc + jumpOffset
 				)
@@ -1120,7 +1110,7 @@ local function disassemble(bytecodeString, options)
 				local offset = get_argc(insn)
 				insnText = string.format(
 					"FASTCALL1 %s R%i %+i ; to %i\n",
-					fastcallNames[fid],
+					fastcallNames[fid] or tostring(fid),
 					get_argb(insn),
 					offset,
 					pc + offset
@@ -1133,7 +1123,7 @@ local function disassemble(bytecodeString, options)
 				local aux = proto.code[pc]
 				insnText = string.format(
 					"FASTCALL2 %s R%i R%i %+i ; to %i\n",
-					fastcallNames[fid],
+					fastcallNames[fid] or tostring(fid),
 					get_argb(insn),
 					aux,
 					offset,
@@ -1147,7 +1137,7 @@ local function disassemble(bytecodeString, options)
 				local aux = proto.code[pc]
 				insnText = string.format(
 					"FASTCALL2K %s R%i K%i %+i [%s] ; to %i\n",
-					fastcallNames[fid],
+					fastcallNames[fid] or tostring(fid),
 					get_argb(insn),
 					aux,
 					offset,
@@ -1218,9 +1208,23 @@ local function disassemble(bytecodeString, options)
 					getConstantString(proto.k[kIdx + 1]),
 					jumpTo
 				)
+			elseif opcode == opcodes.IDIV then
+				insnText = string.format(
+					"IDIV R%i R%i R%i\n",
+					get_arga(insn),
+					get_argb(insn),
+					get_argc(insn)
+				)
+			elseif opcode == opcodes.IDIVK then
+				insnText = string.format(
+					"IDIVK R%i R%i K%i",
+					get_arga(insn),
+					get_argb(insn),
+					get_argc(insn)
+				)
 			else -- Unknown opcode
 				-- Show the hex of this instruction so the user knows what the disassembler failed to recognize
-				insnText = string.format("UNKNOWN %08X\n", insn)
+				insnText = string.format("UNKNOWN (%08X)\n", insn)
 			end
 
 			table.insert(output, bytecodeOffsetString .. insnIdxString .. rawBytesString .. insnText)
